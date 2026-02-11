@@ -41,6 +41,7 @@ feelings-detection-from-voice/
 ├── train.py                   # Training pipeline with checkpointing
 ├── inference.py               # Model inference and export utilities
 ├── emotion_detection_notebook.ipynb  # Jupyter notebook for experimentation
+├── kaggle_notebook.ipynb      # Ready-to-use Kaggle notebook
 ├── requirements.txt           # Python dependencies
 ├── pyproject.toml            # Project configuration
 └── README.md                 # This file
@@ -76,6 +77,49 @@ Or use the Jupyter notebook for interactive experimentation:
 ```bash
 jupyter notebook emotion_detection_notebook.ipynb
 ```
+
+## ☁️ Running on Kaggle
+
+You can run this project entirely on [Kaggle](https://www.kaggle.com/) using free GPU acceleration.
+A ready-to-use notebook is provided at [`kaggle_notebook.ipynb`](kaggle_notebook.ipynb).
+
+### Step-by-step
+
+1. **Create a Kaggle notebook**
+   - Go to [kaggle.com/code](https://www.kaggle.com/code) and click **+ New Notebook**.
+
+2. **Add the datasets**
+   - In the right sidebar click **+ Add Data** and search for:
+     - `uwrfkaggler/ravdess-emotional-speech-audio`
+     - `ejlok1/toronto-emotional-speech-set-tess`
+   - (Optional) Also add `ejlok1/cremad` for a larger training set.
+   - The datasets will be mounted automatically at `/kaggle/input/<dataset-name>/`.
+
+3. **Enable GPU**
+   - Open **Settings → Accelerator** and select **GPU**.
+
+4. **Enable Internet**
+   - Open **Settings → Internet** and set it to **On** (needed for `pip install` and `git clone`).
+
+5. **Upload or import the notebook**
+   - Option A: Upload `kaggle_notebook.ipynb` from this repository via **File → Import Notebook**.
+   - Option B: In a new notebook, clone the repo and run the code:
+     ```python
+     !git clone https://github.com/abdelrahman8128/feelings-detection-from-voice.git
+     import os; os.chdir('feelings-detection-from-voice')
+     ```
+
+6. **Run all cells** – the notebook installs missing packages, detects the Kaggle
+   environment automatically, and trains the model using the pre-mounted datasets.
+
+### Key differences from local setup
+
+| | Local | Kaggle |
+|---|---|---|
+| **Datasets** | Downloaded via Kaggle API to `data/` | Pre-mounted at `/kaggle/input/` (no download needed) |
+| **Output** | Saved in `checkpoints/` and `logs/` | Saved under `/kaggle/working/` |
+| **GPU** | Requires local NVIDIA GPU + CUDA | Free GPU provided by Kaggle |
+| **API key** | Required (`~/.kaggle/kaggle.json`) | Not required |
 
 ## 📊 Datasets
 
