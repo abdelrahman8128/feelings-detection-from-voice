@@ -16,28 +16,43 @@ from typing import Optional, List, Tuple
 class EmotionDataDownloader:
     """Downloads and manages emotion speech datasets."""
     
+    # Kaggle input directory where pre-mounted datasets are available
+    KAGGLE_INPUT_DIR = Path("/kaggle/input")
+    
     def __init__(self, data_dir: str = "data"):
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(exist_ok=True)
+        self.is_kaggle = self._detect_kaggle_environment()
         
         # Dataset configurations
         self.datasets = {
             "ravdess": {
                 "kaggle_dataset": "uwrfkaggler/ravdess-emotional-speech-audio",
+                "kaggle_input_path": self.KAGGLE_INPUT_DIR / "ravdess-emotional-speech-audio",
                 "local_path": self.data_dir / "ravdess",
                 "emotions": ["neutral", "calm", "happy", "sad", "angry", "fearful", "disgust", "surprised"]
             },
             "tess": {
                 "kaggle_dataset": "ejlok1/toronto-emotional-speech-set-tess",
+                "kaggle_input_path": self.KAGGLE_INPUT_DIR / "toronto-emotional-speech-set-tess",
                 "local_path": self.data_dir / "tess", 
                 "emotions": ["angry", "disgust", "fear", "happy", "neutral", "pleasant_surprised", "sad"]
             },
             "crema": {
                 "kaggle_dataset": "ejlok1/cremad",
+                "kaggle_input_path": self.KAGGLE_INPUT_DIR / "cremad",
                 "local_path": self.data_dir / "crema",
                 "emotions": ["angry", "disgust", "fear", "happy", "neutral", "sad"]
             }
         }
+        
+        if self.is_kaggle:
+            print("Kaggle environment detected. Using pre-mounted datasets from /kaggle/input/")
+    
+    @staticmethod
+    def _detect_kaggle_environment() -> bool:
+        """Detect if running inside a Kaggle notebook."""
+        return os.environ.get("KAGGLE_KERNEL_RUN_TYPE") is not None or Path("/kaggle/input").exists()
     
     def check_kaggle_credentials(self) -> bool:
         """Check if Kaggle credentials are properly configured."""
@@ -103,8 +118,27 @@ class EmotionDataDownloader:
             print(f"Error downloading Kaggle dataset {dataset_name}: {e}")
             return False
     
+    def _get_dataset_search_dirs(self, dataset_key: str) -> List[Path]:
+        """Get the directories to search for a dataset's audio files.
+        
+        On Kaggle, this includes the pre-mounted input path. Locally, it
+        uses the configured data directory.
+        """
+        dirs = [self.data_dir]
+        if self.is_kaggle and dataset_key in self.datasets:
+            kaggle_path = self.datasets[dataset_key]["kaggle_input_path"]
+            if kaggle_path.exists():
+                dirs.append(kaggle_path)
+        return dirs
+
     def is_dataset_available(self, dataset_key: str) -> bool:
         """Check if dataset is already downloaded and available."""
+        # On Kaggle, check the pre-mounted input directory first
+        if self.is_kaggle and dataset_key in self.datasets:
+            kaggle_path = self.datasets[dataset_key]["kaggle_input_path"]
+            if kaggle_path.exists():
+                return True
+
         # Check in the main data directory for audio files
         audio_extensions = ['.wav', '.mp3', '.flac', '.m4a']
         audio_files = []
@@ -135,8 +169,22 @@ class EmotionDataDownloader:
             return False
         
         if self.is_dataset_available(dataset_key):
-            print(f"Dataset {dataset_key} already available at {self.datasets[dataset_key]['local_path']}")
+            dataset_config = self.datasets[dataset_key]
+            if self.is_kaggle and dataset_config["kaggle_input_path"].exists():
+                print(f"Dataset {dataset_key} available via Kaggle input at {dataset_config['kaggle_input_path']}")
+            else:
+                print(f"Dataset {dataset_key} already available at {dataset_config['local_path']}")
             return True
+        
+        # On Kaggle, guide the user to add the dataset through the UI
+        if self.is_kaggle:
+            dataset_config = self.datasets[dataset_key]
+            print(f"Dataset {dataset_key} not found in /kaggle/input/.")
+            print(f"Please add it via the Kaggle notebook sidebar:")
+            print(f"  1. Click '+ Add Data' in the right sidebar")
+            print(f"  2. Search for: {dataset_config['kaggle_dataset']}")
+            print(f"  3. Click 'Add' to attach it to your notebook")
+            return False
         
         dataset_config = self.datasets[dataset_key]
         kaggle_dataset = dataset_config["kaggle_dataset"]
@@ -175,9 +223,16 @@ class EmotionDataDownloader:
             if available:
                 audio_extensions = ['.wav', '.mp3', '.flac', '.m4a']
                 audio_files = []
+                # Search local path
                 for ext in audio_extensions:
                     audio_files.extend(list(config["local_path"].rglob(f"*{ext}")))
+                # Also search Kaggle input path when running on Kaggle
+                if self.is_kaggle and config["kaggle_input_path"].exists():
+                    for ext in audio_extensions:
+                        audio_files.extend(list(config["kaggle_input_path"].rglob(f"*{ext}")))
                 audio_count = len(audio_files)
+            
+            effective_path = str(config["kaggle_input_path"]) if (self.is_kaggle and config["kaggle_input_path"].exists()) else str(config["local_path"])
             
             info_data.append({
                 "Dataset": key.upper(),
@@ -185,7 +240,7 @@ class EmotionDataDownloader:
                 "Audio Files": audio_count,
                 "Emotions": len(config["emotions"]),
                 "Emotion Labels": ", ".join(config["emotions"]),
-                "Path": str(config["local_path"])
+                "Path": effective_path
             })
         
         return pd.DataFrame(info_data)
@@ -201,17 +256,34 @@ class EmotionDataDownloader:
         # Search in the entire data directory for audio files
         audio_extensions = ['.wav', '.mp3', '.flac', '.m4a']
         
-        for ext in audio_extensions:
-            audio_files = list(self.data_dir.rglob(f"*{ext}"))
-            
-            for audio_file in audio_files:
-                # Determine which dataset this file belongs to and extract emotion
-                dataset_key = self._determine_dataset(audio_file)
-                if dataset_key in dataset_keys:
-                    emotion = self._extract_emotion_from_path(audio_file, dataset_key)
-                    if emotion:
-                        file_paths.append(str(audio_file))
-                        labels.append(emotion)
+        # Collect all directories to search
+        search_dirs: List[Path] = [self.data_dir]
+        if self.is_kaggle:
+            for key in dataset_keys:
+                if key in self.datasets:
+                    kaggle_path = self.datasets[key]["kaggle_input_path"]
+                    if kaggle_path.exists():
+                        search_dirs.append(kaggle_path)
+        
+        seen_files: set = set()
+        for search_dir in search_dirs:
+            for ext in audio_extensions:
+                audio_files = list(search_dir.rglob(f"*{ext}"))
+                
+                for audio_file in audio_files:
+                    # Avoid duplicates when data_dir overlaps with kaggle path
+                    resolved = str(audio_file.resolve())
+                    if resolved in seen_files:
+                        continue
+                    seen_files.add(resolved)
+
+                    # Determine which dataset this file belongs to and extract emotion
+                    dataset_key = self._determine_dataset(audio_file)
+                    if dataset_key in dataset_keys:
+                        emotion = self._extract_emotion_from_path(audio_file, dataset_key)
+                        if emotion:
+                            file_paths.append(str(audio_file))
+                            labels.append(emotion)
         
         return file_paths, labels
     
