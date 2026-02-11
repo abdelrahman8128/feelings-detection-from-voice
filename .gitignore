@@ -1,0 +1,76 @@
+###############################
+# Project data and artifacts  #
+###############################
+
+# Datasets and raw data
+data/
+
+# Training outputs
+checkpoints/
+logs/
+runs/
+
+# Large/binary ML artifacts (keep out of git)
+*.pth
+*.pt
+*.onnx
+*.tflite
+*.ckpt
+*.pkl
+*.joblib
+*.npz
+*.npy
+*.bin
+*.h5
+
+# Audio/media samples
+*.wav
+*.mp3
+*.flac
+*.m4a
+*.ogg
+*.aac
+
+###############################
+# Python ignores              #
+###############################
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS/editor
+.DS_Store
+._*
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Misc
+.pytest_cache/
+coverage.xml
+.coverage*
+pip-wheel-metadata/
+
+# Deployment binaries (track code/config only)
+deployment/*.pth
+deployment/*.pkl
+deployment/*.pt
