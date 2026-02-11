@@ -232,7 +232,11 @@ class EmotionDataDownloader:
                         audio_files.extend(list(config["kaggle_input_path"].rglob(f"*{ext}")))
                 audio_count = len(audio_files)
             
-            effective_path = str(config["kaggle_input_path"]) if (self.is_kaggle and config["kaggle_input_path"].exists()) else str(config["local_path"])
+            kaggle_path = config["kaggle_input_path"]
+            if self.is_kaggle and kaggle_path.exists():
+                effective_path = str(kaggle_path)
+            else:
+                effective_path = str(config["local_path"])
             
             info_data.append({
                 "Dataset": key.upper(),
@@ -265,7 +269,7 @@ class EmotionDataDownloader:
                     if kaggle_path.exists():
                         search_dirs.append(kaggle_path)
         
-        seen_files: set = set()
+        seen_files = set()
         for search_dir in search_dirs:
             for ext in audio_extensions:
                 audio_files = list(search_dir.rglob(f"*{ext}"))
